@@ -1,7 +1,12 @@
 # go-qmc5883
 A Golang library for the qmc5883 compass
 
-# SPEC: https://cdn-shop.adafruit.com/datasheets/HMC5883L_3-Axis_Digital_Compass_IC.pdf
+# Const
+Inclination: 68° 5' 
+Variation: 15.8
+
+# SPEC
+https://cdn-shop.adafruit.com/datasheets/HMC5883L_3-Axis_Digital_Compass_IC.pdf
 
 # BUILD
 for raspberry pi

@@ -13,6 +13,12 @@ import (
 type Magnetometer struct {
 	Device *i2c.Dev
 	i2cbus i2c.BusCloser
+	minX   int16
+	maxX   int16
+	minY   int16
+	maxY   int16
+	minZ   int16
+	maxZ   int16
 }
 
 const COM_ADDR = 0x1e
@@ -45,6 +51,17 @@ func New() *Magnetometer {
 	mag.i2cbus = i2cbus
 	mag.Device = &i2c.Dev{Addr: COM_ADDR, Bus: i2cbus}
 
+	x, y, z, err := mag.GetXYZ()
+	if err != nil {
+		log.Fatal("fail to get init measure:", err)
+	}
+	mag.maxX = x
+	mag.minX = x
+	mag.maxY = y
+	mag.minY = y
+	mag.minZ = z
+	mag.maxZ = z
+
 	return &mag
 }
 
@@ -52,7 +69,7 @@ func (m *Magnetometer) Close() {
 	defer m.i2cbus.Close()
 }
 
-func (m *Magnetometer) GetPos() (int16, int16, int16, error) {
+func (m *Magnetometer) GetXYZ() (int16, int16, int16, error) {
 	xm, err := m.ReadData([]byte{XMSB})
 	if err != nil {
 		return 0, 0, 0, err
@@ -99,16 +116,63 @@ func calcTwoC(msb, lsb byte) int16 {
 	return val
 }
 
-func (m *Magnetometer) GetAzimuth() (int, error) {
-	x, y, _, err := m.GetPos()
+func (m *Magnetometer) GetTrueHeadingAzimuth() (int, error) {
+	x, y, z, err := m.GetXYZ()
 	if err != nil {
 		return 0, err
 	}
-	res := math.Atan2(float64(x), float64(y)) * (180 / math.Pi)
-	azimuth := int(res)
-	azimuth = azimuth % 360
-	if azimuth <= 0 {
-		azimuth = azimuth + 360
+	log.Printf("x: %d y: %d z: %d\n", x, y, z)
+
+	if x > m.maxX {
+		m.maxX = x
 	}
-	return azimuth, nil
+	if x < m.minX {
+		m.minX = x
+	}
+
+	if y > m.maxY {
+		m.maxY = y
+	}
+	if y < m.minY {
+		m.minY = y
+	}
+
+	if z > m.maxZ {
+		m.maxZ = z
+	}
+	if z < m.minZ {
+		m.minZ = z
+	}
+
+	offsetX := (m.minX + m.maxX) / 2
+	offsetY := (m.minY + m.maxY) / 2
+	offsetZ := (m.minZ + m.maxZ) / 2
+	x = x - offsetX
+	y = y - offsetY
+	z = z - offsetZ
+
+	x = x * -1
+
+	log.Printf("maxx: %d minx: %d\n", m.maxX, m.minX)
+	log.Printf("maxy: %d miny: %d\n", m.maxY, m.minY)
+	log.Printf("maxz: %d minz: %d\n", m.maxZ, m.minZ)
+	log.Printf("norm: x: %d y: %d z: %d\n", x, y, z)
+
+	azimuth := math.Atan2(float64(y), float64(x)) * (180 / math.Pi)
+
+	res := int(azimuth) % 360
+	if res <= 0 {
+		res = res + 360
+	}
+
+	log.Printf("magnetic heading: %d", res)
+	res += 15
+
+	res = int(res) % 360
+	if res <= 0 {
+		res = res + 360
+	}
+	log.Printf("true heading: %d", res)
+
+	return res, nil
 }
