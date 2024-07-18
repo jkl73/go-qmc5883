@@ -153,12 +153,29 @@ func (m *Magnetometer) GetTrueHeadingAzimuth() (int, error) {
 
 	x = x * -1
 
+	rangeX := float64(m.maxX - m.minX)
+	rangeY := float64(m.maxY - m.minY)
+	log.Printf("rangeX: %f, rangeY: %f", rangeX, rangeY)
+
+	scala := 1.0
+
+	xf := float64(x)
+	yf := float64(y)
+
+	if rangeX > rangeY {
+		scala = rangeX / rangeY
+		yf *= scala
+	} else {
+		scala = rangeY / rangeX
+		xf *= scala
+	}
+
 	log.Printf("maxx: %d minx: %d\n", m.maxX, m.minX)
 	log.Printf("maxy: %d miny: %d\n", m.maxY, m.minY)
 	log.Printf("maxz: %d minz: %d\n", m.maxZ, m.minZ)
-	log.Printf("norm: x: %d y: %d z: %d\n", x, y, z)
+	log.Printf("norm: x: %0.2f y: %0.2f z: %d\n", xf, yf, z)
 
-	azimuth := math.Atan2(float64(y), float64(x)) * (180 / math.Pi)
+	azimuth := math.Atan2(float64(yf), float64(xf)) * (180 / math.Pi)
 
 	res := int(azimuth) % 360
 	if res <= 0 {
